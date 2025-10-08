@@ -158,17 +158,27 @@ class EpPayClient
     }
 
     /**
-     * Get QR code image URL for payment
-     * This generates a QR code image via QR Server API
+     * Get QR code as base64 data URL
+     * Generates QR code internally using BaconQrCode
      *
      * @param string $paymentId The payment ID
      * @param int $size QR code size in pixels (default: 300)
-     * @return string QR code image URL
+     * @return string QR code as base64 data URL
      */
     public function getQrCodeUrl(string $paymentId, int $size = 300): string
     {
         $data = $this->getQrCodeData($paymentId);
-        return 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size . '&data=' . urlencode($data);
+
+        $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+            new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size),
+            new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+        );
+
+        $writer = new \BaconQrCode\Writer($renderer);
+        $qrCode = $writer->writeString($data);
+
+        // Return as SVG data URL
+        return 'data:image/svg+xml;base64,' . base64_encode($qrCode);
     }
 
     /**
