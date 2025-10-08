@@ -2,6 +2,23 @@
 
 All notable changes to `laravel-eppay` will be documented in this file.
 
+## v1.0.3 - 2025-10-08
+
+### Added
+- **Built-in QR Code Generation**: No longer depends on external QR code services
+- Uses BaconQrCode library to generate QR codes locally
+- QR codes returned as SVG data URLs (base64 encoded)
+
+### Fixed
+- Fixed Alpine.js syntax error in payment-qr component caused by Blade directives
+- QR codes now work offline and don't require external API calls
+- More reliable - no dependency on third-party QR services
+
+### Improved
+- Faster QR code generation (no network latency)
+- Better privacy - QR data never leaves the server
+- Works in offline/intranet environments
+
 ## v1.0.2 - 2025-10-08
 
 ### Fixed
