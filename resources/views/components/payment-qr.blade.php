@@ -1,6 +1,7 @@
 <div
     x-data="{
         paymentId: '{{ $paymentId }}',
+        successUrl: {{ $successUrl ? "'" . $successUrl . "'" : 'null' }},
         status: 'pending',
         checking: false,
         error: null,
@@ -23,18 +24,18 @@
                     this.status = 'completed';
                     this.stopPolling();
 
-                    @if($successUrl)
-                        window.location.href = '{{ $successUrl }}';
-                    @else
+                    if (this.successUrl) {
+                        window.location.href = this.successUrl;
+                    } else {
                         this.$dispatch('payment-completed', { paymentId: this.paymentId, data: data });
-                    @endif
+                    }
                 } else if (data.status === false) {
                     // Payment not yet completed, keep checking
                     this.status = 'pending';
                 }
-            } catch (error) {
+            } catch (err) {
                 this.error = 'Failed to check payment status';
-                console.error('Payment verification error:', error);
+                console.error('Payment verification error:', err);
             } finally {
                 this.checking = false;
             }
