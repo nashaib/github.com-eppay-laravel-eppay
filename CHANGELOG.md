@@ -2,6 +2,18 @@
 
 All notable changes to `laravel-eppay` will be documented in this file.
 
+## v1.0.2 - 2025-10-08
+
+### Fixed
+- **Success URL Clarification**: Clarified that success URL (`https://eppay.io/payment-success`) points to EpPay server, NOT the developer's app
+- **Configuration**: Renamed `default_success_url` to `success_url` with proper default value
+- **Documentation**: Updated QUICK-START.md to clearly explain the payment flow
+- **API Flow Diagram**: Corrected to show mobile app sends confirmation to EpPay server
+- **Examples**: Removed confusing callback handling example (developers poll `/payment-status` instead)
+
+### Important Note
+The mobile app sends `{"status": true}` to `https://eppay.io/payment-success` (EpPay's server). Developers should NOT expect to receive this callback. Instead, use the auto-polling QR component or manually poll `GET /payment-status/{paymentId}`.
+
 ## v1.0.1 - 2025-10-08
 
 ### Fixed - BREAKING CHANGES
