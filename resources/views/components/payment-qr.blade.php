@@ -18,7 +18,8 @@
                 const response = await fetch('/eppay/verify/' + this.paymentId);
                 const data = await response.json();
 
-                if (data.status === 'completed') {
+                // EpPay API returns {"status": true} when payment is completed
+                if (data.status === true) {
                     this.status = 'completed';
                     this.stopPolling();
 
@@ -27,9 +28,9 @@
                     @else
                         this.$dispatch('payment-completed', { paymentId: this.paymentId, data: data });
                     @endif
-                } else if (data.status === 'failed' || data.status === 'expired') {
-                    this.status = data.status;
-                    this.stopPolling();
+                } else if (data.status === false) {
+                    // Payment not yet completed, keep checking
+                    this.status = 'pending';
                 }
             } catch (error) {
                 this.error = 'Failed to check payment status';

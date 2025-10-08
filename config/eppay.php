@@ -25,25 +25,47 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Default Network
+    | Default Beneficiary Address
     |--------------------------------------------------------------------------
     |
-    | The default blockchain network to use for payments.
-    | Options: ETH, BSC, Polygon, etc.
+    | The default wallet address that will receive payments.
+    | This can be overridden per payment if needed.
     |
     */
-    'default_network' => env('EPPAY_DEFAULT_NETWORK', 'ETH'),
+    'default_beneficiary' => env('EPPAY_DEFAULT_BENEFICIARY'),
 
     /*
     |--------------------------------------------------------------------------
-    | Default Currency
+    | Default Network RPC
     |--------------------------------------------------------------------------
     |
-    | The default cryptocurrency to use for payments.
-    | Options: USDT, USDC, ETH, BNB, etc.
+    | The default blockchain network RPC URL to use for payments.
+    | Example: https://rpc.scimatic.net for Scimatic Network
     |
     */
-    'default_currency' => env('EPPAY_DEFAULT_CURRENCY', 'USDT'),
+    'default_rpc' => env('EPPAY_DEFAULT_RPC', 'https://rpc.scimatic.net'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Token Address
+    |--------------------------------------------------------------------------
+    |
+    | The default token contract address (USDT, USDC, etc.) on your network.
+    | Example: 0x65C4A0dA0416d1262DbC04BeE524c804205B92e8 (USDT on Scimatic)
+    |
+    */
+    'default_token' => env('EPPAY_DEFAULT_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Success Callback URL
+    |--------------------------------------------------------------------------
+    |
+    | The default URL where the EpPay mobile app will send payment confirmation.
+    | This should be a route in your app that handles payment success.
+    |
+    */
+    'default_success_url' => env('EPPAY_DEFAULT_SUCCESS_URL'),
 
     /*
     |--------------------------------------------------------------------------

@@ -24,30 +24,53 @@ class EpPayClient
      * Generate a payment request
      *
      * @param float $amount The amount to charge
-     * @param string|null $network The blockchain network (default from config)
-     * @param string|null $currency The cryptocurrency (default from config)
-     * @param array $metadata Additional metadata to store with the payment
-     * @return array Payment data including payment_id and QR code
+     * @param string|null $to Beneficiary wallet address (uses default if null)
+     * @param string|null $rpc Network RPC URL (uses default if null)
+     * @param string|null $token Token contract address (uses default if null)
+     * @param string|null $successUrl Callback URL for successful payment (uses default if null)
+     * @return array Payment data including paymentId
      * @throws \Exception
      */
     public function generatePayment(
         float $amount,
-        ?string $network = null,
-        ?string $currency = null,
-        array $metadata = []
+        ?string $to = null,
+        ?string $rpc = null,
+        ?string $token = null,
+        ?string $successUrl = null
     ): array {
-        $network = $network ?? config('eppay.default_network');
-        $currency = $currency ?? config('eppay.default_currency');
+        // Use defaults from config if not provided
+        $to = $to ?? config('eppay.default_beneficiary');
+        $rpc = $rpc ?? config('eppay.default_rpc');
+        $token = $token ?? config('eppay.default_token');
+        $successUrl = $successUrl ?? config('eppay.default_success_url');
+
+        // Validate required fields
+        if (empty($to)) {
+            throw new \Exception('Beneficiary address is required. Set EPPAY_DEFAULT_BENEFICIARY or pass $to parameter.');
+        }
+        if (empty($rpc)) {
+            throw new \Exception('Network RPC is required. Set EPPAY_DEFAULT_RPC or pass $rpc parameter.');
+        }
+        if (empty($token)) {
+            throw new \Exception('Token address is required. Set EPPAY_DEFAULT_TOKEN or pass $token parameter.');
+        }
+
+        $payload = [
+            'apiKey' => $this->apiKey,
+            'amount' => (string) $amount,
+            'to' => $to,
+            'rpc' => $rpc,
+            'token' => $token,
+        ];
+
+        if ($successUrl) {
+            $payload['success'] = $successUrl;
+        }
 
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $this->apiKey,
             'Accept' => 'application/json',
-        ])->post($this->baseUrl . '/generate-code', [
-            'amount' => $amount,
-            'network' => $network,
-            'currency' => $currency,
-            'metadata' => json_encode($metadata),
-        ]);
+            'Content-Type' => 'application/json',
+        ])->post($this->baseUrl . '/generate-code', $payload);
 
         if (!$response->successful()) {
             Log::error('EpPay payment generation failed', [
@@ -65,17 +88,14 @@ class EpPayClient
      * Verify payment status
      *
      * @param string $paymentId The payment ID to verify
-     * @return array Payment status data
+     * @return array Payment status data (e.g., ['status' => true])
      * @throws \Exception
      */
     public function verifyPayment(string $paymentId): array
     {
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $this->apiKey,
             'Accept' => 'application/json',
-        ])->post($this->baseUrl . '/payment-verification', [
-            'payment_id' => $paymentId,
-        ]);
+        ])->get($this->baseUrl . '/payment-status/' . $paymentId);
 
         if (!$response->successful()) {
             Log::error('EpPay payment verification failed', [
@@ -100,7 +120,7 @@ class EpPayClient
     {
         try {
             $status = $this->verifyPayment($paymentId);
-            return isset($status['status']) && $status['status'] === 'completed';
+            return isset($status['status']) && $status['status'] === true;
         } catch (\Exception $e) {
             Log::error('Error checking payment status', [
                 'payment_id' => $paymentId,
@@ -126,18 +146,33 @@ class EpPayClient
     }
 
     /**
-     * Generate QR code URL for payment
+     * Generate QR code data string for payment
+     * Format: product=uuideppay&id={paymentId}
      *
      * @param string $paymentId The payment ID
-     * @return string QR code URL
+     * @return string QR code data string
      */
-    public function getQrCodeUrl(string $paymentId): string
+    public function getQrCodeData(string $paymentId): string
     {
-        return $this->baseUrl . '/qr-code/' . $paymentId;
+        return 'product=uuideppay&id=' . $paymentId;
     }
 
     /**
-     * Get payment page URL
+     * Get QR code image URL for payment
+     * This generates a QR code image via Google Charts API
+     *
+     * @param string $paymentId The payment ID
+     * @param int $size QR code size in pixels (default: 300)
+     * @return string QR code image URL
+     */
+    public function getQrCodeUrl(string $paymentId, int $size = 300): string
+    {
+        $data = $this->getQrCodeData($paymentId);
+        return 'https://chart.googleapis.com/chart?chs=' . $size . 'x' . $size . '&cht=qr&chl=' . urlencode($data);
+    }
+
+    /**
+     * Get payment page URL (if you have one on eppay.io)
      *
      * @param string $paymentId The payment ID
      * @return string Payment page URL
