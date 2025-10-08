@@ -23,11 +23,13 @@ EPPAY_DEFAULT_RPC=https://rpc.scimatic.net
 # Required: Token contract address (USDT, USDC, etc.)
 EPPAY_DEFAULT_TOKEN=0x65C4A0dA0416d1262DbC04BeE524c804205B92e8
 
-# Optional: Success callback URL (where mobile app sends confirmation)
-EPPAY_DEFAULT_SUCCESS_URL=https://yourapp.com/payment-success
-
 # Optional: API base URL (default: https://eppay.io)
 EPPAY_BASE_URL=https://eppay.io
+
+# Optional: Success URL (default: https://eppay.io/payment-success)
+# This is where the mobile app sends payment confirmation to EpPay server
+# DO NOT CHANGE unless instructed by EpPay support
+EPPAY_SUCCESS_URL=https://eppay.io/payment-success
 ```
 
 ## How It Works
@@ -35,9 +37,9 @@ EPPAY_BASE_URL=https://eppay.io
 1. **User gets API key** from https://eppay.io
 2. **Your app generates payment** by calling EpPay API
 3. **App displays QR code** with format: `product=uuideppay&id={paymentId}`
-4. **User scans QR** with EpPay mobile app
-5. **Mobile app sends confirmation** to your success URL as `{"status": true}`
-6. **Your app verifies payment** by checking `/payment-status/{paymentId}`
+4. **User scans QR** with EpPay mobile app and completes payment
+5. **Mobile app sends confirmation** to EpPay server (`https://eppay.io/payment-success`) as `{"status": true}`
+6. **Your app verifies payment** by checking `/payment-status/{paymentId}` which returns `{"status": true}`
 
 ## Basic Usage
 
@@ -109,20 +111,18 @@ class PaymentController extends Controller
         }
     }
 
-    // Handle callback from EpPay mobile app
-    public function success(Request $request)
+    public function success($paymentId)
     {
-        // Mobile app sends: {"status": true}
-        $paymentId = $request->input('payment_id'); // You'll need to extract this
+        // Verify payment is completed
+        if (EpPay::isPaymentCompleted($paymentId)) {
+            // Payment confirmed! Process the order
+            // Update database, send email, etc.
 
-        if ($request->input('status') === true) {
-            // Update your database - payment confirmed!
-            // Process order, send email, etc.
-
-            return response()->json(['message' => 'Payment recorded']);
+            return view('payment.success', ['paymentId' => $paymentId]);
         }
 
-        return response()->json(['message' => 'Payment not confirmed'], 400);
+        return redirect()->route('payment.show', $paymentId)
+            ->with('error', 'Payment not yet completed');
     }
 }
 ```
@@ -141,8 +141,8 @@ Route::get('/payment/{paymentId}', [PaymentController::class, 'show'])->name('pa
 // AJAX verification endpoint (used by QR component)
 Route::get('/payment/{paymentId}/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 
-// Callback from EpPay mobile app
-Route::post('/payment-success', [PaymentController::class, 'success'])->name('payment.success');
+// Success page (after payment is verified)
+Route::get('/payment/{paymentId}/success', [PaymentController::class, 'success'])->name('payment.success');
 ```
 
 ### 3. Create Payment View
@@ -172,15 +172,19 @@ Route::post('/payment-success', [PaymentController::class, 'success'])->name('pa
 ```php
 use EpPay\LaravelEpPay\Facades\EpPay;
 
+// Override default parameters for specific payment
 $payment = EpPay::generatePayment(
     amount: 100.50,
-    to: '0xYourCustomWalletAddress',
-    rpc: 'https://custom-rpc-url.com',
-    token: '0xCustomTokenAddress',
-    successUrl: 'https://yourapp.com/payment-callback'
+    to: '0xYourCustomWalletAddress',        // Custom beneficiary
+    rpc: 'https://custom-rpc-url.com',      // Custom network
+    token: '0xCustomTokenAddress',          // Custom token
+    successUrl: null                        // Uses default: https://eppay.io/payment-success
 );
 
 // Returns: {"paymentId": "uuid-here"}
+
+// Or simply use defaults from .env
+$payment = EpPay::generatePayment(100.50);
 ```
 
 ### Check Payment Status
@@ -241,7 +245,7 @@ async function checkPayment() {
 └──────┬──────┘
        │
        │ 1. POST /generate-code
-       │    {apiKey, amount, to, rpc, token, success}
+       │    {apiKey, amount, to, rpc, token, success: "https://eppay.io/payment-success"}
        │
        v
 ┌──────────────┐
@@ -270,12 +274,18 @@ async function checkPayment() {
 │ Mobile App   │
 └──────┬───────┘
        │
-       │ 5. POST to success URL
+       │ 5. POST to https://eppay.io/payment-success
        │    {"status": true}
        │
        v
 ┌──────────────┐
-│  Your App    │
+│ EpPay Server │ ← Payment marked as completed
+└──────────────┘
+
+       Meanwhile...
+
+┌──────────────┐
+│  Your App    │ ← Auto-polling every 3 seconds
 └──────┬───────┘
        │
        │ 6. GET /payment-status/{paymentId}
@@ -289,7 +299,7 @@ async function checkPayment() {
        │
        v
 ┌──────────────┐
-│ Payment Done │
+│ Payment Done │ ← Your app processes the order
 └──────────────┘
 ```
 

@@ -58,14 +58,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Default Success Callback URL
+    | Success Callback URL
     |--------------------------------------------------------------------------
     |
-    | The default URL where the EpPay mobile app will send payment confirmation.
-    | This should be a route in your app that handles payment success.
+    | The URL where the EpPay mobile app sends payment confirmation.
+    | This is an EpPay server endpoint - DO NOT CHANGE unless instructed.
+    | The mobile app sends {"status": true} here when payment is completed.
     |
     */
-    'default_success_url' => env('EPPAY_DEFAULT_SUCCESS_URL'),
+    'success_url' => env('EPPAY_SUCCESS_URL', 'https://eppay.io/payment-success'),
 
     /*
     |--------------------------------------------------------------------------

@@ -42,7 +42,7 @@ class EpPayClient
         $to = $to ?? config('eppay.default_beneficiary');
         $rpc = $rpc ?? config('eppay.default_rpc');
         $token = $token ?? config('eppay.default_token');
-        $successUrl = $successUrl ?? config('eppay.default_success_url');
+        $successUrl = $successUrl ?? config('eppay.success_url');
 
         // Validate required fields
         if (empty($to)) {
