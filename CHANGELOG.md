@@ -2,6 +2,25 @@
 
 All notable changes to `laravel-eppay` will be documented in this file.
 
+## v1.0.4 - 2025-10-08
+
+### Fixed
+- **Complete component rewrite**: Removed Alpine.js dependency from payment QR component
+- Fixed persistent JavaScript syntax errors caused by Blade directives inside JS code
+- Eliminated view caching issues that prevented component updates
+
+### Changed
+- Payment QR component now uses vanilla JavaScript instead of Alpine.js
+- Implemented `window.EpPayWidget` object for cleaner global scope management
+- All DOM manipulation now uses standard `getElementById` and `style.display`
+- Better separation of PHP/Blade and JavaScript code
+
+### Improved
+- More reliable component with no frontend framework dependencies
+- Easier to debug and customize
+- Reduced bundle size by removing Alpine.js requirement
+- Cleaner code structure with self-executing function pattern
+
 ## v1.0.3 - 2025-10-08
 
 ### Added

@@ -1,77 +1,11 @@
-<div
-    x-data="{
-        paymentId: '{{ $paymentId }}',
-        successUrl: {{ $successUrl ? "'" . $successUrl . "'" : 'null' }},
-        status: 'pending',
-        checking: false,
-        error: null,
-        pollingInterval: {{ $pollingInterval }},
-        autoRefresh: {{ $autoRefresh ? 'true' : 'false' }},
-        timer: null,
+@php
+    $successRedirect = $successUrl ?? '';
+    $cancelRedirect = $cancelUrl ?? '';
+@endphp
 
-        async checkPaymentStatus() {
-            if (this.checking || this.status === 'completed') return;
-
-            this.checking = true;
-            this.error = null;
-
-            try {
-                const response = await fetch('/eppay/verify/' + this.paymentId);
-                const data = await response.json();
-
-                // EpPay API returns {"status": true} when payment is completed
-                if (data.status === true) {
-                    this.status = 'completed';
-                    this.stopPolling();
-
-                    if (this.successUrl) {
-                        window.location.href = this.successUrl;
-                    } else {
-                        this.$dispatch('payment-completed', { paymentId: this.paymentId, data: data });
-                    }
-                } else if (data.status === false) {
-                    // Payment not yet completed, keep checking
-                    this.status = 'pending';
-                }
-            } catch (err) {
-                this.error = 'Failed to check payment status';
-                console.error('Payment verification error:', err);
-            } finally {
-                this.checking = false;
-            }
-        },
-
-        startPolling() {
-            if (!this.autoRefresh) return;
-
-            this.timer = setInterval(() => {
-                this.checkPaymentStatus();
-            }, this.pollingInterval);
-        },
-
-        stopPolling() {
-            if (this.timer) {
-                clearInterval(this.timer);
-                this.timer = null;
-            }
-        },
-
-        init() {
-            this.startPolling();
-
-            // Cleanup on component destroy
-            this.$watch('status', value => {
-                if (value === 'completed' || value === 'failed' || value === 'expired') {
-                    this.stopPolling();
-                }
-            });
-        }
-    }"
-    x-init="init()"
-    class="eppay-payment-qr max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg"
->
+<div class="eppay-payment-qr max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
     <!-- Payment Status Banner -->
-    <div x-show="status === 'completed'" class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+    <div id="payment-completed-banner" style="display: none;" class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
         <div class="flex items-center">
             <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -80,27 +14,9 @@
         </div>
     </div>
 
-    <div x-show="status === 'failed'" class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-        <div class="flex items-center">
-            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-            <span class="font-semibold">Payment Failed</span>
-        </div>
-    </div>
-
-    <div x-show="status === 'expired'" class="mb-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
-        <div class="flex items-center">
-            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <span class="font-semibold">Payment Expired</span>
-        </div>
-    </div>
-
     <!-- Error Message -->
-    <div x-show="error" class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-        <span x-text="error"></span>
+    <div id="payment-error" style="display: none;" class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+        <span id="payment-error-text"></span>
     </div>
 
     <!-- Payment Information -->
@@ -110,7 +26,7 @@
     </div>
 
     <!-- QR Code -->
-    <div class="flex justify-center mb-6" x-show="status === 'pending'">
+    <div class="flex justify-center mb-6" id="qr-code-container">
         <div class="relative">
             <img
                 src="{{ $qrCodeUrl }}"
@@ -119,10 +35,7 @@
             />
 
             <!-- Loading Overlay -->
-            <div
-                x-show="checking"
-                class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg"
-            >
+            <div id="loading-overlay" style="display: none;" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
                 <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -167,17 +80,17 @@
     <!-- Action Buttons -->
     <div class="space-y-3">
         <button
-            @click="checkPaymentStatus()"
-            :disabled="checking || status === 'completed'"
+            id="check-payment-btn"
+            onclick="EpPayWidget.checkStatus()"
             class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition duration-200"
         >
-            <span x-show="!checking">Check Payment Status</span>
-            <span x-show="checking">Checking...</span>
+            <span id="btn-text-check">Check Payment Status</span>
+            <span id="btn-text-checking" style="display: none;">Checking...</span>
         </button>
 
-        @if($cancelUrl)
+        @if($cancelRedirect)
         <a
-            href="{{ $cancelUrl }}"
+            href="{{ $cancelRedirect }}"
             class="block w-full py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg text-center transition duration-200"
         >
             Cancel Payment
@@ -194,7 +107,7 @@
     </div>
 
     <!-- Status Indicator -->
-    <div class="mt-6 text-center" x-show="status === 'pending' && autoRefresh">
+    <div id="auto-check-indicator" class="mt-6 text-center" style="display: {{ $autoRefresh ? 'block' : 'none' }};">
         <div class="flex items-center justify-center text-sm text-gray-500">
             <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
             <span>Auto-checking payment status...</span>
@@ -202,8 +115,122 @@
     </div>
 </div>
 
-@once
-@push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-@endpush
-@endonce
+<script>
+(function() {
+    window.EpPayWidget = {
+        paymentId: '{{ $paymentId }}',
+        successUrl: '{{ $successRedirect }}',
+        autoRefresh: {{ $autoRefresh ? 'true' : 'false' }},
+        pollingInterval: {{ $pollingInterval }},
+        timer: null,
+        checking: false,
+
+        checkStatus: function() {
+            if (this.checking) return;
+
+            this.checking = true;
+            this.updateUI('checking');
+
+            fetch('/eppay/verify/' + this.paymentId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === true) {
+                        this.onPaymentComplete();
+                    } else {
+                        this.updateUI('pending');
+                    }
+                })
+                .catch(error => {
+                    this.showError('Failed to check payment status');
+                    console.error('Payment verification error:', error);
+                    this.updateUI('error');
+                })
+                .finally(() => {
+                    this.checking = false;
+                });
+        },
+
+        onPaymentComplete: function() {
+            this.stopPolling();
+            this.updateUI('completed');
+
+            if (this.successUrl) {
+                setTimeout(() => {
+                    window.location.href = this.successUrl;
+                }, 1000);
+            } else {
+                // Dispatch custom event
+                const event = new CustomEvent('payment-completed', {
+                    detail: { paymentId: this.paymentId }
+                });
+                document.dispatchEvent(event);
+            }
+        },
+
+        updateUI: function(state) {
+            const btnCheck = document.getElementById('btn-text-check');
+            const btnChecking = document.getElementById('btn-text-checking');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const completedBanner = document.getElementById('payment-completed-banner');
+            const qrContainer = document.getElementById('qr-code-container');
+
+            if (state === 'checking') {
+                btnCheck.style.display = 'none';
+                btnChecking.style.display = 'inline';
+                loadingOverlay.style.display = 'flex';
+            } else if (state === 'pending') {
+                btnCheck.style.display = 'inline';
+                btnChecking.style.display = 'none';
+                loadingOverlay.style.display = 'none';
+            } else if (state === 'completed') {
+                completedBanner.style.display = 'block';
+                qrContainer.style.display = 'none';
+                document.getElementById('auto-check-indicator').style.display = 'none';
+            } else if (state === 'error') {
+                btnCheck.style.display = 'inline';
+                btnChecking.style.display = 'none';
+                loadingOverlay.style.display = 'none';
+            }
+        },
+
+        showError: function(message) {
+            const errorDiv = document.getElementById('payment-error');
+            const errorText = document.getElementById('payment-error-text');
+            errorText.textContent = message;
+            errorDiv.style.display = 'block';
+
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        },
+
+        startPolling: function() {
+            if (!this.autoRefresh) return;
+
+            this.timer = setInterval(() => {
+                this.checkStatus();
+            }, this.pollingInterval);
+        },
+
+        stopPolling: function() {
+            if (this.timer) {
+                clearInterval(this.timer);
+                this.timer = null;
+            }
+        },
+
+        init: function() {
+            this.startPolling();
+        }
+    };
+
+    // Auto-start when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            EpPayWidget.init();
+        });
+    } else {
+        EpPayWidget.init();
+    }
+})();
+</script>
