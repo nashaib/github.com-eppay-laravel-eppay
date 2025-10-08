@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="EpPay Laravel Test Suite">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">./src</directory>
+        </include>
+    </coverage>
+    <php>
+        <env name="APP_KEY" value="base64:2fl3UtYWk5N5w7qF+Qqs78vDFqjmQXBrGKlB6Xjfkr0="/>
+        <env name="EPPAY_API_KEY" value="test_api_key"/>
+        <env name="EPPAY_BASE_URL" value="https://eppay.io"/>
+    </php>
+</phpunit>
