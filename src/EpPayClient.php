@@ -159,7 +159,7 @@ class EpPayClient
 
     /**
      * Get QR code image URL for payment
-     * This generates a QR code image via Google Charts API
+     * This generates a QR code image via QR Server API
      *
      * @param string $paymentId The payment ID
      * @param int $size QR code size in pixels (default: 300)
@@ -168,7 +168,7 @@ class EpPayClient
     public function getQrCodeUrl(string $paymentId, int $size = 300): string
     {
         $data = $this->getQrCodeData($paymentId);
-        return 'https://chart.googleapis.com/chart?chs=' . $size . 'x' . $size . '&cht=qr&chl=' . urlencode($data);
+        return 'https://api.qrserver.com/v1/create-qr-code/?size=' . $size . 'x' . $size . '&data=' . urlencode($data);
     }
 
     /**
