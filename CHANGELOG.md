@@ -2,6 +2,16 @@
 
 All notable changes to `laravel-eppay` will be documented in this file.
 
+## v1.1.0 - 2026-02-13
+
+### Added
+- **Laravel 12 Support**: Package now fully supports Laravel 10, 11, and 12
+- PHPUnit 11 support for testing with Laravel 12
+- Orchestra Testbench 10 support
+
+### Changed
+- Minimum PHP version raised to 8.2 (required by Laravel 12)
+
 ## v1.0.4 - 2025-10-08
 
 ### Fixed

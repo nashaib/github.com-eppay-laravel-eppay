@@ -16,12 +16,12 @@ A simple and elegant Laravel package for integrating EpPay cryptocurrency paymen
 - ✅ Support for multiple cryptocurrencies (USDT, USDC, ETH, BNB, etc.)
 - ✅ Payment verification middleware
 - ✅ Fully customizable Blade components
-- ✅ Laravel 10 & 11 compatible
+- ✅ Laravel 10, 11 & 12 compatible
 
 ## Requirements
 
-- PHP 8.1 or higher
-- Laravel 10.0 or higher
+- PHP 8.2 or higher
+- Laravel 10.0 or higher (including Laravel 12)
 - An EpPay API key ([Get one here](https://eppay.io/apis))
 
 ## Installation
