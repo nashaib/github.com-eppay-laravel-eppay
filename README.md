@@ -7,16 +7,17 @@ A simple and elegant Laravel package for integrating EpPay cryptocurrency paymen
 
 ## Features
 
-- ✅ Easy installation via Composer
-- ✅ Simple `.env` configuration
-- ✅ Beautiful pre-built QR code payment component
-- ✅ Automatic payment status verification
-- ✅ Real-time payment polling
-- ✅ Support for multiple blockchain networks (ETH, BSC, Polygon, etc.)
-- ✅ Support for multiple cryptocurrencies (USDT, USDC, ETH, BNB, etc.)
-- ✅ Payment verification middleware
-- ✅ Fully customizable Blade components
-- ✅ Laravel 10, 11 & 12 compatible
+- Easy installation via Composer
+- Simple `.env` configuration
+- Beautiful pre-built QR code payment component
+- Automatic payment status verification
+- Real-time payment polling
+- Built-in QR code generation (no external services)
+- Support for multiple blockchain networks (ETH, BSC, Polygon, etc.)
+- Support for multiple cryptocurrencies (USDT, USDC, ETH, BNB, etc.)
+- Payment verification middleware
+- Fully customizable Blade components
+- Laravel 10, 11 & 12 compatible
 
 ## Requirements
 
@@ -40,15 +41,16 @@ php artisan vendor:publish --tag=eppay-config
 
 This will create a `config/eppay.php` file where you can customize settings.
 
-### Step 3: Configure Your API Key
+### Step 3: Configure Your Environment
 
-Add your EpPay API key to your `.env` file:
+Add the following to your `.env` file:
 
 ```env
 EPPAY_API_KEY=your_api_key_here
 EPPAY_BASE_URL=https://eppay.io
-EPPAY_DEFAULT_NETWORK=ETH
-EPPAY_DEFAULT_CURRENCY=USDT
+EPPAY_DEFAULT_BENEFICIARY=0xYourWalletAddress
+EPPAY_DEFAULT_RPC=https://rpc.scimatic.net
+EPPAY_DEFAULT_TOKEN=0xYourTokenContractAddress
 ```
 
 That's it! You're ready to start accepting crypto payments.
@@ -69,24 +71,17 @@ class PaymentController extends Controller
 {
     public function createPayment(Request $request)
     {
-        // Generate a payment request
-        $payment = EpPay::generatePayment(
-            amount: 100.00,
-            network: 'ETH',      // Optional: defaults to config
-            currency: 'USDT',     // Optional: defaults to config
-            metadata: [           // Optional: store custom data
-                'order_id' => '12345',
-                'user_id' => auth()->id(),
-            ]
-        );
+        // Generate a payment request using .env defaults
+        $payment = EpPay::generatePayment(amount: 100.00);
 
-        // Payment response contains:
-        // - payment_id: Unique payment identifier
-        // - qr_code: QR code data
-        // - wallet_address: Payment address
-        // - amount: Payment amount
-        // - currency: Payment currency
-        // - network: Blockchain network
+        // Or specify all parameters explicitly
+        // $payment = EpPay::generatePayment(
+        //     amount: 100.00,
+        //     to: '0xBeneficiaryWallet',    // Wallet to receive payment
+        //     rpc: 'https://rpc.url',       // Blockchain RPC URL
+        //     token: '0xTokenContract',      // Token contract address
+        //     successUrl: 'https://eppay.io/payment-success'
+        // );
 
         return view('payments.show', [
             'paymentId' => $payment['payment_id'],
@@ -96,11 +91,10 @@ class PaymentController extends Controller
 
     public function verifyPayment($paymentId)
     {
-        // Check if payment is completed
+        // Check if payment is completed (returns boolean)
         $isCompleted = EpPay::isPaymentCompleted($paymentId);
 
         if ($isCompleted) {
-            // Payment successful! Process the order
             return redirect()->route('order.success');
         }
 
@@ -126,7 +120,7 @@ Simply use the pre-built Blade component:
 ```
 
 The component includes:
-- Beautiful QR code display
+- QR code display (SVG, generated locally)
 - Automatic payment status checking (every 3 seconds)
 - Payment completion detection
 - Redirect on successful payment
@@ -150,19 +144,24 @@ Route::get('/payment/{paymentId}/verify', [PaymentController::class, 'verifyPaym
     ->name('payment.verify');
 ```
 
+> **Note:** The package auto-registers a route at `GET /eppay/verify/{paymentId}` used by the QR component for status polling.
+
 ## Advanced Usage
 
 ### Using the Facade
 
-The `EpPay` facade provides several helpful methods:
+The `EpPay` facade provides several methods:
 
 ```php
 use EpPay\LaravelEpPay\Facades\EpPay;
 
-// Generate a payment
-$payment = EpPay::generatePayment(50.00, 'BSC', 'USDT');
+// Generate a payment (uses .env defaults for to/rpc/token)
+$payment = EpPay::generatePayment(50.00);
 
-// Verify payment status
+// Generate with explicit parameters
+$payment = EpPay::generatePayment(50.00, $beneficiary, $rpc, $token, $successUrl);
+
+// Verify payment status (returns full status array)
 $status = EpPay::verifyPayment('payment_id_here');
 
 // Check if payment is completed (returns boolean)
@@ -171,7 +170,10 @@ $isCompleted = EpPay::isPaymentCompleted('payment_id_here');
 // Get payment details
 $details = EpPay::getPaymentDetails('payment_id_here');
 
-// Get QR code URL
+// Get QR code data string (format: product=uuideppay&id={paymentId})
+$qrData = EpPay::getQrCodeData('payment_id_here');
+
+// Get QR code as base64 SVG data URL
 $qrUrl = EpPay::getQrCodeUrl('payment_id_here');
 
 // Get payment page URL
@@ -180,15 +182,16 @@ $pageUrl = EpPay::getPaymentUrl('payment_id_here');
 
 ### Payment Verification Middleware
 
-Protect routes that require completed payments:
+Protect routes that require completed payments.
+
+Register the middleware in `bootstrap/app.php` (Laravel 11+):
 
 ```php
-// app/Http/Kernel.php
-
-protected $middlewareAliases = [
-    // ... other middleware
-    'eppay.verify' => \EpPay\LaravelEpPay\Middleware\VerifyEpPayPayment::class,
-];
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->alias([
+        'eppay.verify' => \EpPay\LaravelEpPay\Middleware\VerifyEpPayPayment::class,
+    ]);
+})
 ```
 
 Use in routes:
@@ -223,7 +226,6 @@ document.addEventListener('payment-completed', (event) => {
     console.log('Payment completed!', event.detail);
     // event.detail contains: { paymentId, data }
 
-    // Perform custom actions
     window.location.href = '/success';
 });
 ```
@@ -235,15 +237,6 @@ Change how often payment status is checked:
 ```env
 # Check every 5 seconds (5000 milliseconds)
 EPPAY_POLLING_INTERVAL=5000
-```
-
-Or pass it directly to the component:
-
-```blade
-<x-eppay-payment-qr
-    :payment-id="$paymentId"
-    polling-interval="5000"
-/>
 ```
 
 ## Complete Example
@@ -270,17 +263,8 @@ class CheckoutController extends Controller
             'status' => 'pending',
         ]);
 
-        // Generate payment
-        $payment = EpPay::generatePayment(
-            amount: $order->total,
-            network: $request->network ?? 'ETH',
-            currency: $request->currency ?? 'USDT',
-            metadata: [
-                'order_id' => $order->id,
-                'user_id' => auth()->id(),
-                'customer_email' => auth()->user()->email,
-            ]
-        );
+        // Generate payment (uses .env defaults for beneficiary/rpc/token)
+        $payment = EpPay::generatePayment(amount: $order->total);
 
         // Save payment ID to order
         $order->update([
@@ -329,7 +313,6 @@ class CheckoutController extends Controller
                     <span>Order #{{ $order->id }}</span>
                     <span class="font-semibold">${{ $order->total }}</span>
                 </div>
-                <!-- Add more order details -->
             </div>
         </div>
 
@@ -348,23 +331,40 @@ class CheckoutController extends Controller
 @endsection
 ```
 
+## How Payment Flow Works
+
+1. Your app calls `EpPay::generatePayment()` to create a payment
+2. Display the QR code using the `<x-eppay-payment-qr>` component
+3. User scans the QR code with the EpPay mobile app
+4. The mobile app sends payment confirmation to EpPay's server (`https://eppay.io/payment-success`)
+5. The QR component auto-polls `GET /eppay/verify/{paymentId}` to check status
+6. Once confirmed, the component redirects to your `success-url`
+
+> **Important:** The mobile app sends confirmation to EpPay's server, not to your app. Your app detects payment completion by polling the payment status endpoint.
+
 ## Configuration
 
 All configuration options in `config/eppay.php`:
 
 ```php
 return [
-    // Your EpPay API key
+    // Your EpPay API key from https://eppay.io/apis
     'api_key' => env('EPPAY_API_KEY'),
 
     // EpPay base URL
     'base_url' => env('EPPAY_BASE_URL', 'https://eppay.io'),
 
-    // Default blockchain network
-    'default_network' => env('EPPAY_DEFAULT_NETWORK', 'ETH'),
+    // Default wallet address that will receive payments
+    'default_beneficiary' => env('EPPAY_DEFAULT_BENEFICIARY'),
 
-    // Default cryptocurrency
-    'default_currency' => env('EPPAY_DEFAULT_CURRENCY', 'USDT'),
+    // Default blockchain network RPC URL
+    'default_rpc' => env('EPPAY_DEFAULT_RPC', 'https://rpc.scimatic.net'),
+
+    // Default token contract address (USDT, USDC, etc.)
+    'default_token' => env('EPPAY_DEFAULT_TOKEN'),
+
+    // EpPay server callback URL (do not change)
+    'success_url' => env('EPPAY_SUCCESS_URL', 'https://eppay.io/payment-success'),
 
     // Polling interval in milliseconds
     'polling_interval' => env('EPPAY_POLLING_INTERVAL', 3000),
