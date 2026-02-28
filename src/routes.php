@@ -9,15 +9,42 @@ use EpPay\LaravelEpPay\Facades\EpPay;
 |--------------------------------------------------------------------------
 |
 | These routes are automatically registered by the EpPay package.
-| They handle payment verification for the frontend components.
+| They handle payment status checking for the frontend components.
 |
 */
 
 Route::prefix('eppay')->name('eppay.')->group(function () {
-    // Payment verification endpoint for AJAX calls
+    // Payment status endpoint for AJAX polling (v2 rich response)
+    Route::get('/status/{paymentId}', function ($paymentId) {
+        try {
+            $result = EpPay::checkStatus($paymentId);
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    })->name('status');
+
+    // Full payment details
+    Route::get('/payment/{paymentId}', function ($paymentId) {
+        try {
+            $result = EpPay::getPaymentDetails($paymentId);
+            if (!$result) {
+                return response()->json(['error' => 'Payment not found'], 404);
+            }
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    })->name('details');
+
+    // Legacy verify endpoint (kept for backwards compatibility)
     Route::get('/verify/{paymentId}', function ($paymentId) {
         try {
-            $result = EpPay::verifyPayment($paymentId);
+            $result = EpPay::checkStatus($paymentId);
             return response()->json($result);
         } catch (\Exception $e) {
             return response()->json([

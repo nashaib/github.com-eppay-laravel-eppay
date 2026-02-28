@@ -8,8 +8,7 @@ use Illuminate\Http\Request;
 /**
  * Example Payment Controller
  *
- * This controller demonstrates how to integrate EpPay
- * cryptocurrency payments into your Laravel application.
+ * Demonstrates EpPay v2 API integration in a Laravel application.
  */
 class PaymentController extends Controller
 {
@@ -18,36 +17,34 @@ class PaymentController extends Controller
      */
     public function index()
     {
-        return view('payments.create');
+        // Fetch available networks for the form dropdown
+        $networks = EpPay::getNetworks();
+
+        return view('payments.create', compact('networks'));
     }
 
     /**
-     * Generate a new payment request
+     * Create a new payment via EpPay v2 API
      */
     public function createPayment(Request $request)
     {
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'network' => 'nullable|string',
-            'currency' => 'nullable|string',
-            'description' => 'nullable|string|max:255',
+            'token_type' => 'nullable|string|in:USDT,USDC',
         ]);
 
         try {
-            // Generate payment with EpPay
-            $payment = EpPay::generatePayment(
+            // Create payment — uses .env defaults for wallet, network, token_type
+            $payment = EpPay::createPayment(
                 amount: $validated['amount'],
                 network: $validated['network'] ?? null,
-                currency: $validated['currency'] ?? null,
-                metadata: [
-                    'description' => $validated['description'] ?? 'Payment',
-                    'user_id' => auth()->id(),
-                    'created_at' => now()->toIso8601String(),
-                ]
+                tokenType: $validated['token_type'] ?? null,
+                successUrl: route('payment.callback'),
             );
 
-            // Optionally store payment in your database
-            // Payment::create([...]);
+            // $payment contains: payment_id, amount, network, token_type, to,
+            //                    status, qr_data, payment_url, created_at
 
             return redirect()->route('payment.show', $payment['payment_id']);
 
@@ -63,56 +60,55 @@ class PaymentController extends Controller
      */
     public function showPayment($paymentId)
     {
+        $payment = EpPay::getPaymentDetails($paymentId);
+
+        if (!$payment) {
+            abort(404, 'Payment not found');
+        }
+
+        return view('payments.show', [
+            'paymentId' => $paymentId,
+            'paymentData' => $payment,
+        ]);
+    }
+
+    /**
+     * AJAX endpoint: check payment status (called by frontend polling)
+     */
+    public function checkStatus($paymentId)
+    {
         try {
-            // Get payment details
-            $paymentDetails = EpPay::getPaymentDetails($paymentId);
+            $status = EpPay::checkStatus($paymentId);
 
-            if (!$paymentDetails) {
-                abort(404, 'Payment not found');
-            }
-
-            return view('payments.show', [
-                'paymentId' => $paymentId,
-                'paymentData' => $paymentDetails,
-            ]);
+            return response()->json($status);
+            // Returns: payment_id, status, confirmed, amount, network,
+            //          token_type, tx_hash, from, completed_at
 
         } catch (\Exception $e) {
-            abort(404, 'Payment not found');
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * Verify payment status (called via AJAX or manually)
+     * Server-to-server callback from EpPay (POST)
+     * This is called by EpPay when payment is confirmed on-chain.
      */
-    public function verifyPayment($paymentId)
+    public function handleCallback(Request $request)
     {
-        try {
-            $status = EpPay::verifyPayment($paymentId);
+        // EpPay sends: payment_id, amount, tx_hash, from, token_type, network
+        $paymentId = $request->input('payment_id');
+        $txHash = $request->input('tx_hash');
+        $amount = $request->input('amount');
 
-            if ($status['status'] === 'completed') {
-                // Update your database
-                // Payment::where('payment_id', $paymentId)->update(['status' => 'completed']);
-
-                return response()->json([
-                    'success' => true,
-                    'status' => 'completed',
-                    'message' => 'Payment completed successfully!',
-                    'redirect' => route('payment.success', $paymentId),
-                ]);
-            }
-
-            return response()->json([
-                'success' => false,
-                'status' => $status['status'],
-                'message' => 'Payment not completed yet',
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-            ], 500);
+        // Verify the payment is actually complete
+        if (!EpPay::isPaymentCompleted($paymentId)) {
+            return response()->json(['error' => 'Payment not confirmed'], 400);
         }
+
+        // Update your order/database
+        // Order::where('payment_id', $paymentId)->update(['status' => 'paid', 'tx_hash' => $txHash]);
+
+        return response()->json(['received' => true]);
     }
 
     /**
@@ -120,52 +116,16 @@ class PaymentController extends Controller
      */
     public function paymentSuccess($paymentId)
     {
-        // Verify the payment is actually completed
         if (!EpPay::isPaymentCompleted($paymentId)) {
             return redirect()->route('payment.show', $paymentId)
-                ->with('error', 'Payment not completed');
+                ->with('error', 'Payment not completed yet');
         }
 
-        $paymentDetails = EpPay::getPaymentDetails($paymentId);
+        $payment = EpPay::getPaymentDetails($paymentId);
 
         return view('payments.success', [
             'paymentId' => $paymentId,
-            'paymentData' => $paymentDetails,
+            'paymentData' => $payment,
         ]);
-    }
-
-    /**
-     * Payment cancel/failure page
-     */
-    public function paymentCancel($paymentId)
-    {
-        return view('payments.cancel', [
-            'paymentId' => $paymentId,
-        ]);
-    }
-
-    /**
-     * Example: Download digital product after payment
-     * Uses middleware to verify payment
-     */
-    public function downloadProduct(Request $request, $paymentId)
-    {
-        // The middleware ensures payment is completed
-        // Payment details are available in the request
-        $paymentDetails = $request->input('payment_details');
-
-        // Get product from payment metadata
-        $metadata = json_decode($paymentDetails['metadata'] ?? '{}', true);
-        $productId = $metadata['product_id'] ?? null;
-
-        if (!$productId) {
-            abort(404, 'Product not found');
-        }
-
-        // Return download
-        return response()->download(
-            storage_path("products/{$productId}.zip"),
-            "product-{$productId}.zip"
-        );
     }
 }

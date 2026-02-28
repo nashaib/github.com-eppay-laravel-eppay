@@ -131,10 +131,10 @@
             this.checking = true;
             this.updateUI('checking');
 
-            fetch('/eppay/verify/' + this.paymentId)
+            fetch('/eppay/status/' + this.paymentId)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.status === true) {
+                    if (data.confirmed === true) {
                         this.onPaymentComplete();
                     } else {
                         this.updateUI('pending');

@@ -36,37 +36,38 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Default Network RPC
+    | Default Network
     |--------------------------------------------------------------------------
     |
-    | The default blockchain network RPC URL to use for payments.
-    | Example: https://rpc.scimatic.net for Scimatic Network
+    | The default blockchain network slug to use for payments.
+    | Examples: "bsc", "eth", "polygon", "arbitrum"
+    | See https://eppay.io/docs/v2#supported-networks for all options.
     |
     */
-    'default_rpc' => env('EPPAY_DEFAULT_RPC', 'https://rpc.scimatic.net'),
+    'default_network' => env('EPPAY_DEFAULT_NETWORK', 'bsc'),
 
     /*
     |--------------------------------------------------------------------------
-    | Default Token Address
+    | Default Token Type
     |--------------------------------------------------------------------------
     |
-    | The default token contract address (USDT, USDC, etc.) on your network.
-    | Example: 0x65C4A0dA0416d1262DbC04BeE524c804205B92e8 (USDT on Scimatic)
+    | The default token type for payments.
+    | Supported: "USDT", "USDC"
     |
     */
-    'default_token' => env('EPPAY_DEFAULT_TOKEN'),
+    'default_token_type' => env('EPPAY_DEFAULT_TOKEN_TYPE', 'USDT'),
 
     /*
     |--------------------------------------------------------------------------
     | Success Callback URL
     |--------------------------------------------------------------------------
     |
-    | The URL where the EpPay mobile app sends payment confirmation.
-    | This is an EpPay server endpoint - DO NOT CHANGE unless instructed.
-    | The mobile app sends {"status": true} here when payment is completed.
+    | The URL where EpPay sends a POST when payment is confirmed on-chain.
+    | This is your server endpoint that handles payment completion.
+    | The callback receives: payment_id, amount, tx_hash, from, token_type, network
     |
     */
-    'success_url' => env('EPPAY_SUCCESS_URL', 'https://eppay.io/payment-success'),
+    'success_url' => env('EPPAY_SUCCESS_URL'),
 
     /*
     |--------------------------------------------------------------------------
