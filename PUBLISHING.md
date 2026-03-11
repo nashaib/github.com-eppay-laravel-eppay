@@ -190,7 +190,7 @@ If you encounter issues publishing:
 
 - Packagist Help: https://packagist.org/about
 - GitHub Help: https://docs.github.com/
-- Email: support@eppay.io
+- Email: info@eppay.io
 
 ---
 

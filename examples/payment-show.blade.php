@@ -96,7 +96,7 @@
         <div class="mt-8 text-center">
             <p class="text-gray-600 text-sm">
                 Need help?
-                <a href="mailto:support@eppay.io" class="text-blue-600 hover:underline">
+                <a href="mailto:info@eppay.io" class="text-blue-600 hover:underline">
                     Contact Support
                 </a>
             </p>

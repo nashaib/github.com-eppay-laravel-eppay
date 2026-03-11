@@ -289,6 +289,6 @@ class CustomVerifyPayment extends VerifyEpPayPayment
 ## Support
 
 For questions about the package structure:
-- Email: support@eppay.io
+- Email: info@eppay.io
 - GitHub: https://github.com/eppay/laravel-eppay
 - Docs: https://eppay.io/docs

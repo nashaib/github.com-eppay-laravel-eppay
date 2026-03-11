@@ -412,7 +412,7 @@ The MIT License (MIT). Please see [License File](LICENSE.md) for more informatio
 ## Support
 
 - Documentation: [https://eppay.io/docs](https://eppay.io/docs)
-- Email: support@eppay.io
+- Email: info@eppay.io
 - Issues: [GitHub Issues](https://github.com/eppay/laravel-eppay/issues)
 
 ## Changelog

@@ -350,7 +350,7 @@ Set `EPPAY_DEFAULT_RPC` in your `.env` file.
 
 ## Support
 
-- Email: support@eppay.io
+- Email: info@eppay.io
 - Docs: https://eppay.io/docs
 - Issues: https://github.com/eppay/laravel-eppay/issues
 

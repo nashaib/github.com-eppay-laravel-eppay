@@ -309,7 +309,7 @@ Make sure you've added `EPPAY_API_KEY` to your `.env` file and run `php artisan 
 
 Need help? Reach out:
 
-- Email: support@eppay.io
+- Email: info@eppay.io
 - Documentation: https://eppay.io/docs
 - GitHub Issues: https://github.com/eppay/laravel-eppay/issues
 
